@@ -1,0 +1,1 @@
+Echoes of a Forgotten Canvas: ZIP embedded in PNG, encrypted carrier.jpg. Password NOT in common/targeted lists. rockyou.txt has too many false positives with fast ZipCrypto check. bkcrack too slow on this VPS. MAYBE password is hidden in PNG image itself via stego? Or try hashcat on faster hardware. SKIP for now.

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CROX SWARM — Enjambre</title>
+<style>
+:root{--bg:#070b12;--card:#101725;--line:#1f2a3d;--fg:#e6edf3;--dim:#8b98a9;
+--ok:#3fb950;--warn:#d29922;--bad:#f85149;--acc:#58a6ff;--hot:#bc8cff;
+--glow:0 0 24px rgba(88,166,255,.12)}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(1200px 600px at 70% -10%,#12203a 0%,var(--bg) 55%);color:var(--fg);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:18px;min-height:100vh}
+h1{font-size:22px;letter-spacing:2px;text-shadow:0 0 18px rgba(188,140,255,.35)}
+h1 .hot{color:var(--hot)}
+.hdr{border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:14px;background:linear-gradient(90deg,rgba(88,166,255,.08),rgba(188,140,255,.06));box-shadow:var(--glow)}
+.bar{height:6px;border-radius:4px;background:#0d1420;overflow:hidden;margin:3px 0 8px}
+.bar>i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--acc),var(--hot));transition:width .6s}
+.bar.hot>i{background:linear-gradient(90deg,var(--warn),var(--bad))}
+.sub{color:var(--dim);font-size:12px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.card:hover{border-color:#2d3f5c}
+.card h2{font-size:13px;color:var(--acc);margin-bottom:8px;display:flex;justify-content:space-between}
+.badge{font-size:10px;padding:2px 8px;border-radius:10px}
+.b-ok{background:#12361f;color:var(--ok)} .b-warn{background:#3a2d10;color:var(--warn)} .b-bad{background:#3d1518;color:var(--bad)}
+.kv{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);padding:2px 0}
+.kv b{color:var(--fg);font-weight:600}
+.agents{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.agent{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;color:var(--dim)}
+.agent b{color:var(--fg)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.d-run{background:var(--ok)} .d-idle{background:var(--dim)} .d-stale{background:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--dim)}
+td{color:var(--fg)}
+#login{max-width:340px;margin:12vh auto}
+input,button{background:#0d1117;border:1px solid var(--line);color:var(--fg);padding:9px 12px;border-radius:8px;width:100%;margin:6px 0;font:inherit}
+button{background:var(--acc);color:#04101f;font-weight:700;cursor:pointer;border:none}
+.tabs{display:flex;gap:8px;margin:14px 0}
+.tabs button{width:auto;background:var(--card);color:var(--dim);border:1px solid var(--line)}
+.tabs button.on{color:var(--acc);border-color:var(--acc)}
+.refresh{color:var(--dim);font-size:11px;float:right}
+.big{font-size:26px;font-weight:800;color:var(--hot)}
+</style>
+</head>
+<body>
+<div id="login" class="card" style="display:none">
+  <h1>CROX <span class="hot">SWARM</span></h1>
+  <div class="sub">acceso privado</div>
+  <input id="u" placeholder="usuario" autocomplete="username">
+  <input id="p" type="password" placeholder="contraseña" autocomplete="current-password">
+  <button onclick="login()">ENTRAR</button>
+  <div id="lerr" style="color:var(--bad);font-size:11px"></div>
+</div>
+
+<div id="app" style="display:none">
+  <h1>⚡ CROX <span class="hot">SWARM</span> <span class="refresh" id="clock"></span></h1>
+  <div class="sub" id="me"></div>
+  <div class="hdr" id="ctfstrip" style="display:none"></div>
+  <div class="tabs">
+    <button class="on" onclick="tab('nodes',this)">NODOS</button>
+    <button onclick="tab('tasks',this)">TAREAS</button>
+    <button onclick="tab('msgs',this)">MEMORIA</button>
+  </div>
+  <div id="tv"></div>
+</div>
+
+<script>
+let T = {nodes:{}, tasks:[], msgs:[]};
+async function api(m, ep, body){
+  const r = await fetch(ep, {method:m, headers:{'Content-Type':'application/json'},
+    body: body?JSON.stringify(body):undefined, credentials:'same-origin'});
+  if(r.status===401){ showLogin(); throw new Error('auth'); }
+  return r.json();
+}
+function showLogin(){ document.getElementById('login').style.display='block'; document.getElementById('app').style.display='none'; }
+async function login(){
+  try{
+    const d = await api('POST','/api/login',{user:u.value, pass:p.value});
+    document.getElementById('me').textContent = 'operador: ' + d.user;
+    document.getElementById('login').style.display='none';
+    document.getElementById('app').style.display='block';
+    tick(); setInterval(tick, 10000);
+  }catch(e){ document.getElementById('lerr').textContent='acceso denegado'; }
+}
+async function tick(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('es-ES');
+  try{
+    const [nodes, tasks] = await Promise.all([api('GET','/api/nodes'), api('GET','/api/tasks')]);
+    T.nodes = nodes; T.tasks = tasks; render();
+  }catch(e){}
+}
+function esc(s){ return String(s??'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+function render(){
+  const el = document.getElementById('tv');
+  const cur = document.querySelector('.tabs .on').textContent;
+  if(cur==='NODOS'){
+    el.innerHTML = '<div class="grid">' + (T.nodes.length? T.nodes.map(n=>{
+      const ago = Math.round((Date.now()/1000 - n.last_seen));
+      const badge = n.stale? '<span class="badge b-bad">CAÍDO</span>' : '<span class="badge b-ok">ACTIVO</span>';
+      const ag = (n.agents||[]).map(a=>`<div class="agent"><span><span class="dot ${a.status==='running'?'d-run':'d-idle'}"></span><b>${esc(a.name)}</b> <span style="color:var(--dim)">${esc(a.kind||'')}</span></span><span>${esc(a.task||'')}</span></div>`).join('');
+      const tk = (n.tasks||[]).map(t=>`<div class="agent"><span>▸ ${esc(t.title)}</span><span>${esc(t.progress||t.state||'')}</span></div>`).join('');
+      const sys = n.system||{};
+      const memTot = sys.mem_total_mb || (sys.mem_free_mb? Math.round(sys.mem_free_mb/0.4): null);
+      const memPct = (sys.mem_free_mb&&memTot)? Math.min(100,Math.round(100-(sys.mem_free_mb/memTot*100))) : null;
+      const load = (sys.load&&sys.load[0]!=null)? sys.load[0] : 0;
+      const loadPct = Math.min(100, Math.round(load*100/8));
+      return `<div class="card"><h2>🖥 ${esc(n.node_id)} ${badge}</h2>
+        <div class="kv"><span>v${esc(n.version||'?')} · hace ${ago}s</span><span>⏱ ${new Date(n.ts*1000).toLocaleTimeString('es-ES')}</span></div>
+        <div class="kv"><span>carga CPU (1m)</span><b>${load.toFixed(2)}</b></div><div class="bar ${loadPct>75?'hot':''}"><i style="width:${loadPct}%"></i></div>
+        <div class="kv"><span>memoria usada</span><b>${memPct!=null? memPct+'% ('+(memTot-sys.mem_free_mb).toFixed(0)+'/'+memTot+' MB)':(sys.mem_free_mb??'?')+' MB libres'}</b></div>${memPct!=null?`<div class="bar ${memPct>85?'hot':''}"><i style="width:${memPct}%"></i></div>`:''}
+        <div class="kv"><span>disco libre</span><b>${sys.disk_free_gb??'?'} GB</b></div>
+        ${n.extra?.ctf_score?`<div class="kv"><span>🏁 CTF</span><b class="big" style="font-size:18px">${n.extra.ctf_score} pts · #${n.extra.ctf_rank_div}</b></div>`:''}
+        <div class="agents">${ag}${tk||'<div class="agent">sin tareas activas</div>'}</div></div>`;
+    }).join('') : '<div class="card">Sin nodos reportando todavía.</div>') + '</div>';
+  } else if(cur==='TAREAS'){
+    el.innerHTML = '<div class="card"><h2>TAREAS DEL ENJAMBRE</h2><table><tr><th>ID</th><th>Título</th><th>Nodo</th><th>Estado</th><th>Owner</th><th>Progreso</th></tr>' +
+      T.tasks.map(t=>`<tr><td>${esc(t.id)}</td><td>${esc(t.title)}</td><td>${esc(t.node_id)}</td><td>${esc(t.state)}</td><td>${esc(t.owner)}</td><td>${esc(t.progress)}</td></tr>`).join('') + '</table></div>';
+  } else if(cur==='MEMORIA'){
+    el.innerHTML = '<div class="card"><h2>🧠 MEMORIA DEL ENJAMBRE <span class="badge b-ok">compartida</span></h2><div id="msgform"><input id="mto" placeholder="nodo destino (vacío = broadcast)" style="width:30%"><input id="mbody" placeholder="recuerdo / mensaje" style="width:55%;display:inline-block"><button style="width:12%" onclick="sendMsg()">➤</button></div><div id="msglist">cargando…</div></div>';
+    api('GET','/api/messages?limit=30').then(ms=>{
+      const l=document.getElementById('msglist'); if(!l) return;
+      l.innerHTML = (ms&&ms.length? ms.slice().reverse().map(m=>`<div class="agent"><span><b>${esc(m.from||'?')}</b> → ${esc(m.to||'*')}</span><span>${new Date(m.ts*1000).toLocaleTimeString('es-ES')}</span></div><div style="font-size:12px;color:var(--fg);padding:0 0 8px 12px;border-left:2px solid var(--line)">${esc(m.body)}</div>`).join('') : '<div class="agent">sin recuerdos todavía — escribe el primero</div>');
+    }).catch(()=>{const l=document.getElementById('msglist'); if(l) l.textContent='(no disponible)';});
+  } else {
+    el.innerHTML = '<div class="card"><h2>MENSAJES</h2><div id="msgform"><input id="mto" placeholder="nodo destino" style="width:30%"><input id="mbody" placeholder="mensaje" style="width:55%;display:inline-block"><button style="width:12%" onclick="sendMsg()">➤</button></div><div id="msglist"></div></div>';
+  }
+  const cs = document.getElementById('ctfstrip');
+  const ctf = (T.nodes[0]&&T.nodes[0].extra)||{};
+  if(ctf.ctf_score){ cs.style.display='block'; cs.innerHTML = `<div style="display:flex;gap:28px;align-items:center;flex-wrap:wrap"><span>🏁 <b class="big">${ctf.ctf_score} pts</b></span><span>rank <b style="color:var(--acc);font-size:18px">#${ctf.ctf_rank_div??'?'}</b></span><span style="color:var(--dim)">${ctf.ctf_kills??'?'} kills · HI Cyber Con 2026</span><span style="margin-left:auto" class="badge b-warn">en vivo</span></div>`; }
+}
+function tab(name, btn){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); render();
+}
+async function sendMsg(){
+  await api('POST','/api/message',{to:mto.value, body:mbody.value});
+  mbody.value='';
+}
+api('GET','/api/nodes').then(()=>{
+  document.getElementById('app').style.display='block'; tick(); setInterval(tick,10000);
+}).catch(()=>showLogin());
+</script>
+</body>
+</html>
