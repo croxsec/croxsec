@@ -21,7 +21,7 @@ Headline numbers: 51% DMARC `p=none` · 67% no HSTS · 26% `/wp-login.php` publi
 ## API preview
 
 - **Live**: `GET /v1/audit?domain=yourdomain.com` -> score + findings in JSON, no signup.
-  Endpoint: https://logs-places-sheffield-luxury.trycloudflare.com (proto v0; ephemeral URL, rate-limited; bearer key on request at crox@croxsec.com).
+  Endpoint: https://leaf-icons-britain-asbestos.trycloudflare.com (proto v0; ephemeral URL, rate-limited; bearer key on request at crox@croxsec.com).
 - Source engine: [`domain-posture`](https://github.com/croxsec/domain-posture) (passive, read-only).
 
 ## Contact
