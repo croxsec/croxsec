@@ -18,6 +18,12 @@ Headline numbers: 51% DMARC `p=none` · 67% no HSTS · 26% `/wp-login.php` publi
 
 - [`domain-posture`](https://github.com/croxsec/domain-posture) — the passive posture scanner we use (MIT, stdlib-only).
 
+## API preview
+
+- **Live**: `GET /v1/audit?domain=yourdomain.com` -> score + findings in JSON, no signup.
+  Endpoint: https://logs-places-sheffield-luxury.trycloudflare.com (proto v0; ephemeral URL, rate-limited; bearer key on request at crox@croxsec.com).
+- Source engine: [`domain-posture`](https://github.com/croxsec/domain-posture) (passive, read-only).
+
 ## Contact
 
 - 🌐 https://croxsec.com
